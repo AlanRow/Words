@@ -11,6 +11,7 @@
 using namespace std;
 
 char* ABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+int BUFSIZE = 500000;
 
 class CStringComparator
 {
@@ -43,36 +44,38 @@ public:
 template <class T>
 class CMyAllocator
 {
-char * Buffer;
-char * Free;
-char * End;
+	char * Buffer;
+	char * Free;
+	char * End;
+	//bool first;
 public:
 	typedef typename T value_type;
 
 	CMyAllocator()
 	{
-		Buffer = (char*)malloc(1048576);
+		Buffer = (char*)malloc(BUFSIZE);
 		char *Next = 0;
-		End = Buffer + 1048576;
+		End = Buffer + BUFSIZE;
 		Free = Buffer + sizeof(Next);
+		//first = true;
 	}
 
 	template <class U>
 	CMyAllocator(const CMyAllocator<U> &V)
 	{
-		Buffer = (char*)malloc(1048576);
+		Buffer = (char*)malloc(BUFSIZE);
 		char *Next = 0;
-		End = Buffer + 1048576;
+		End = Buffer + BUFSIZE;
 		Free = Buffer + sizeof(Next);
 	}
 
 	T* allocate(size_t Count) {
 		if (Free + sizeof(T) * Count > End) {
-			char * new_buf = (char*)malloc(1048576);
+			char * new_buf = (char*)malloc(BUFSIZE);//  1048576
 			void ** Next = (void **) new_buf;
 			*Next = Buffer;
 			Buffer = new_buf;
-			End = Buffer + 1048576;
+			End = Buffer + BUFSIZE;
 
 			char * to_write = Free;
 			Free = Buffer + sizeof(T) * Count + sizeof(Next);
@@ -84,14 +87,29 @@ public:
 			return(T*)Free;
 		}
 	}
-	
+
 	void deallocate(T* V, size_t Count)
 	{
-		void ** Next = *Buffer;
-		if (Free )
-		free(V);
 	}
-/*
+};
+
+/*template <class T>
+class CMyAllocator
+{
+public:
+	typedef typename T value_type;
+
+	CMyAllocator()
+	{
+
+	}
+
+	template <class U>
+	CMyAllocator(const CMyAllocator<U> &V)
+	{
+
+	}
+
 	T* allocate(size_t Count)
 	{
 		//printf("Allocate %d\n", (int)(Count * sizeof(T)));
@@ -104,8 +122,8 @@ public:
 		//printf("Free %d\n", (int)(Count * sizeof(T)));
 
 		free(V);
-	}*/
-};
+	}
+};*/
 
 HANDLE open_for_read() {
 	return CreateFile(TEXT("text.txt"), GENERIC_READ, 0, NULL,
@@ -147,39 +165,49 @@ int read_file(char** text) {
 	return success_bytes + 1;
 }
 
-void parsewords(char* text) {
+void abetinit(int* abet) {
+	for (int i = 0; i < 256; i++) {
+		abet[i] = 0;
+	}
+
+
+	char *abet_symb = ABET;
+
+	while (*abet_symb != '\0') {
+		abet[(int)*abet_symb] = 1;
+		abet_symb++;
+	}
+}
+
+void parsewords(char* text, int* abet) {
 
 	while (*text != '\0') {
-		char *abet_symb = ABET;
-		bool is_sep = true;
+		//char *abet_symb = ABET;
 
-		while (is_sep && *abet_symb != '\0') {
-			if (*text == *abet_symb) {
-				*text = tolower(*text);
-				is_sep = false;
-			}
-			abet_symb++;
-		}
-
-		if (is_sep) {
+		if (abet[(int)*text] == 1) {
+			*text = tolower(*text);
+		} else {
 			*text = '\0';
 		}
-
 		text++;
 	}
 }
 
 int main(int argc, char* argv[])
-{
-	map<char*, size_t, CStringComparator, CMyAllocator<char*>> Map; // time ~ 2.7
+{ // time ~ 2.7
 	//map<char*, size_t> Map; // time ~ 3.4
+
+	//alphabet initialize (int array: 0 - not a letter, 1 - letter)
+	int* abet = new int[256];
+	abetinit(abet);
 
 	char* text;
 	int length = read_file(&text);
 
-	chrono::time_point<chrono::high_resolution_clock> start = chrono::high_resolution_clock::now();
-	parsewords(text);
+	map<char*, size_t, CStringComparator, CMyAllocator<char*>> Map;
 
+	chrono::time_point<chrono::high_resolution_clock> start = chrono::high_resolution_clock::now();
+	parsewords(text, abet);
 	char *p = text;
 
 	while (p - text < length) {
@@ -202,15 +230,10 @@ int main(int argc, char* argv[])
 			p++;
 	}
 	chrono::time_point<chrono::high_resolution_clock> end = chrono::high_resolution_clock::now();
-
-	for (auto Entry : Map)
-	{
-		printf("Word %s, count %I64d\n", Entry.first, (uint64_t)Entry.second);
-	}
-
 	auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - start);
-	cout << endl << "Elapsed time: " << elapsed.count() << " ms" << endl;
 
+	cout << endl << "Elapsed time: " << elapsed.count() << " ms" << endl;
+	
 	getchar();
 
 	return 0;
