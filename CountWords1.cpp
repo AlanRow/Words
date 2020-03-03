@@ -11,7 +11,7 @@
 using namespace std;
 
 char* ABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-int BUFSIZE = 500000;
+//int BUFSIZE = 10000;
 
 class CStringComparator
 {
@@ -41,7 +41,92 @@ public:
 	}
 };
 
+class BuffAllocator {
+	char * free;
+	char ** buf;
+	char * end;
+	int bufsize;
+
+public:
+	BuffAllocator(int size) {
+		bufsize = size;
+
+		char* start = (char*)malloc(bufsize);
+		free = start + sizeof(char*);
+		end = start + bufsize;
+
+		char* null = 0;
+
+		buf = (char**)start;
+		*buf = null;
+	}
+
+	void * allocate(size_t Count) {
+		if (free + Count > end) {
+			//cout << End - Free << endl;
+			//cout << "Buf allocated" << endl;
+			char * new_buf = (char*)malloc(bufsize);//  1048576
+			char * previous = *buf;
+			*new_buf = (char)previous; //???
+
+			buf = (char **)new_buf;
+			end = new_buf + bufsize;
+			free = new_buf + sizeof(char *);
+
+			char * to_write = free;
+			free += Count;
+
+			return to_write;
+		}
+		else {
+			//TODO:
+		}
+	}
+};
+
 template <class T>
+class CMyAllocator
+{
+public:
+	typedef typename T value_type;
+
+	CMyAllocator()
+	{
+	}
+
+	template <class U>
+	CMyAllocator(const CMyAllocator<U> &V)
+	{
+	}
+
+	T* allocate(size_t Count) {
+		if (Free + sizeof(T) * Count > End) {
+			//cout << End - Free << endl;
+			//cout << "Buf allocated" << endl;
+			Free = (char*)malloc(BUFSIZE);//  1048576
+			End = Free + BUFSIZE;
+
+			char * to_write = Free;
+			Free += sizeof(T) * Count;
+
+			return (T*)to_write;
+		}
+		else {
+			char * to_write = Free;
+			Free += sizeof(T) * Count;
+			return(T*)to_write;
+		}
+	}
+
+	void deallocate(T* V, size_t Count)
+	{
+	}
+};
+
+//18 583
+//18 660
+
+/*template <class T>
 class CMyAllocator
 {
 	char * Buffer;
@@ -71,8 +156,11 @@ public:
 
 	T* allocate(size_t Count) {
 		if (Free + sizeof(T) * Count > End) {
+			cout << End - Free << endl;
+			cout << "Buf allocated" << endl;
 			char * new_buf = (char*)malloc(BUFSIZE);//  1048576
-			void ** Next = (void **) new_buf;
+			//void ** Next = (void **)new_buf;
+			void ** Next = (void **)new_buf;
 			*Next = Buffer;
 			Buffer = new_buf;
 			End = Buffer + BUFSIZE;
@@ -91,38 +179,41 @@ public:
 	void deallocate(T* V, size_t Count)
 	{
 	}
-};
+};*/
+
+//18801
+//18538
 
 /*template <class T>
 class CMyAllocator
 {
 public:
-	typedef typename T value_type;
+typedef typename T value_type;
 
-	CMyAllocator()
-	{
+CMyAllocator()
+{
 
-	}
+}
 
-	template <class U>
-	CMyAllocator(const CMyAllocator<U> &V)
-	{
+template <class U>
+CMyAllocator(const CMyAllocator<U> &V)
+{
 
-	}
+}
 
-	T* allocate(size_t Count)
-	{
-		//printf("Allocate %d\n", (int)(Count * sizeof(T)));
+T* allocate(size_t Count)
+{
+//printf("Allocate %d\n", (int)(Count * sizeof(T)));
 
-		return (T*)malloc(sizeof(T) * Count);
-	}
+return (T*)malloc(sizeof(T) * Count);
+}
 
-	void deallocate(T* V, size_t Count)
-	{
-		//printf("Free %d\n", (int)(Count * sizeof(T)));
+void deallocate(T* V, size_t Count)
+{
+//printf("Free %d\n", (int)(Count * sizeof(T)));
 
-		free(V);
-	}
+free(V);
+}
 };*/
 
 HANDLE open_for_read() {
@@ -186,7 +277,8 @@ void parsewords(char* text, int* abet) {
 
 		if (abet[(int)*text] == 1) {
 			*text = tolower(*text);
-		} else {
+		}
+		else {
 			*text = '\0';
 		}
 		text++;
@@ -195,45 +287,52 @@ void parsewords(char* text, int* abet) {
 
 int main(int argc, char* argv[])
 { // time ~ 2.7
-	//map<char*, size_t> Map; // time ~ 3.4
+  //map<char*, size_t> Map; // time ~ 3.4
 
-	//alphabet initialize (int array: 0 - not a letter, 1 - letter)
+  //alphabet initialize (int array: 0 - not a letter, 1 - letter)
 	int* abet = new int[256];
 	abetinit(abet);
 
 	char* text;
 	int length = read_file(&text);
 
-	map<char*, size_t, CStringComparator, CMyAllocator<char*>> Map;
+	double time = 0;
 
-	chrono::time_point<chrono::high_resolution_clock> start = chrono::high_resolution_clock::now();
-	parsewords(text, abet);
-	char *p = text;
+	for (int i = 0; i < 1; i++) {
+		chrono::time_point<chrono::high_resolution_clock> start = chrono::high_resolution_clock::now();
+		parsewords(text, abet);
 
-	while (p - text < length) {
-		while (*p == '\0')
-			p++;
-		if (p - text >= length)
-			break;
+		map<char*, size_t, CStringComparator, CMyAllocator<char*>> Map;
 
-		auto It = Map.find(p);
-		if (It == Map.end())
-		{
-			Map.insert(make_pair(p, 1));
+		char *p = text;
+
+		while (p - text < length) {
+			while (*p == '\0')
+				p++;
+			if (p - text >= length)
+				break;
+
+			auto It = Map.find(p);
+			if (It == Map.end())
+			{
+				Map.insert(make_pair(p, 1));
+			}
+			else
+			{
+				It->second++;
+			}
+
+			while (*p != '\0')
+				p++;
 		}
-		else
-		{
-			It->second++;
-		}
-
-		while (*p != '\0')
-			p++;
+		chrono::time_point<chrono::high_resolution_clock> end = chrono::high_resolution_clock::now();
+		auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - start);
+		time += elapsed.count();
 	}
-	chrono::time_point<chrono::high_resolution_clock> end = chrono::high_resolution_clock::now();
-	auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - start);
 
-	cout << endl << "Elapsed time: " << elapsed.count() << " ms" << endl;
-	
+
+	cout << endl << "Elapsed time: " << time << " ms" << endl;
+
 	getchar();
 
 	return 0;
