@@ -48,47 +48,67 @@ class BuffAllocator {
 	int bufsize;
 
 public:
+	BuffAllocator() : BuffAllocator(13000) {}
+
 	BuffAllocator(int size) {
 		bufsize = size;
+		cout << "Allocator created!" << endl;
 
 		char* start = (char*)malloc(bufsize);
+		//cout << start << endl;
+
 		free = start + sizeof(char*);
-		end = start + bufsize;
+		//end = start + bufsize;
 
 		char* null = 0;
 
 		buf = (char**)start;
+		//cout << buf << endl;
+
 		*buf = null;
+		//cout << buf << endl;
 	}
 
 	void * allocate(size_t Count) {
 		if (free + Count > end) {
-			//cout << End - Free << endl;
-			//cout << "Buf allocated" << endl;
+			cout << "Buffer created!" << endl;
 			char * new_buf = (char*)malloc(bufsize);//  1048576
 			char * previous = *buf;
 			*new_buf = (char)previous; //???
 
 			buf = (char **)new_buf;
+
 			end = new_buf + bufsize;
 			free = new_buf + sizeof(char *);
-
-			char * to_write = free;
-			free += Count;
-
-			return to_write;
 		}
-		else {
-			//TODO:
+
+		char * to_write = free;
+		free += Count;
+
+		return to_write;
+	}
+
+	BuffAllocator::~BuffAllocator() {
+		char ** cur = buf;
+		//cout << "Buffer deleted!" << endl;
+		while (cur != 0) {
+			cout << "Buffer deleted!" << endl;
+			char ** next = (char **)*cur;
+			std::free((char*)cur);
+			cur = (char **)*next;
 		}
 	}
 };
+
+BuffAllocator ALLOCATOR = BuffAllocator();
 
 template <class T>
 class CMyAllocator
 {
 public:
 	typedef typename T value_type;
+
+	
 
 	CMyAllocator()
 	{
@@ -100,22 +120,7 @@ public:
 	}
 
 	T* allocate(size_t Count) {
-		if (Free + sizeof(T) * Count > End) {
-			//cout << End - Free << endl;
-			//cout << "Buf allocated" << endl;
-			Free = (char*)malloc(BUFSIZE);//  1048576
-			End = Free + BUFSIZE;
-
-			char * to_write = Free;
-			Free += sizeof(T) * Count;
-
-			return (T*)to_write;
-		}
-		else {
-			char * to_write = Free;
-			Free += sizeof(T) * Count;
-			return(T*)to_write;
-		}
+		return (T*)ALLOCATOR.allocate(Count * sizeof(T));
 	}
 
 	void deallocate(T* V, size_t Count)
@@ -129,56 +134,56 @@ public:
 /*template <class T>
 class CMyAllocator
 {
-	char * Buffer;
-	char * Free;
-	char * End;
-	//bool first;
+char * Buffer;
+char * Free;
+char * End;
+//bool first;
 public:
-	typedef typename T value_type;
+typedef typename T value_type;
 
-	CMyAllocator()
-	{
-		Buffer = (char*)malloc(BUFSIZE);
-		char *Next = 0;
-		End = Buffer + BUFSIZE;
-		Free = Buffer + sizeof(Next);
-		//first = true;
-	}
+CMyAllocator()
+{
+Buffer = (char*)malloc(BUFSIZE);
+char *Next = 0;
+End = Buffer + BUFSIZE;
+Free = Buffer + sizeof(Next);
+//first = true;
+}
 
-	template <class U>
-	CMyAllocator(const CMyAllocator<U> &V)
-	{
-		Buffer = (char*)malloc(BUFSIZE);
-		char *Next = 0;
-		End = Buffer + BUFSIZE;
-		Free = Buffer + sizeof(Next);
-	}
+template <class U>
+CMyAllocator(const CMyAllocator<U> &V)
+{
+Buffer = (char*)malloc(BUFSIZE);
+char *Next = 0;
+End = Buffer + BUFSIZE;
+Free = Buffer + sizeof(Next);
+}
 
-	T* allocate(size_t Count) {
-		if (Free + sizeof(T) * Count > End) {
-			cout << End - Free << endl;
-			cout << "Buf allocated" << endl;
-			char * new_buf = (char*)malloc(BUFSIZE);//  1048576
-			//void ** Next = (void **)new_buf;
-			void ** Next = (void **)new_buf;
-			*Next = Buffer;
-			Buffer = new_buf;
-			End = Buffer + BUFSIZE;
+T* allocate(size_t Count) {
+if (Free + sizeof(T) * Count > End) {
+cout << End - Free << endl;
+cout << "Buf allocated" << endl;
+char * new_buf = (char*)malloc(BUFSIZE);//  1048576
+//void ** Next = (void **)new_buf;
+void ** Next = (void **)new_buf;
+*Next = Buffer;
+Buffer = new_buf;
+End = Buffer + BUFSIZE;
 
-			char * to_write = Free;
-			Free = Buffer + sizeof(T) * Count + sizeof(Next);
+char * to_write = Free;
+Free = Buffer + sizeof(T) * Count + sizeof(Next);
 
-			return (T*)to_write;
-		}
-		else {
-			Free += sizeof(T) * Count;
-			return(T*)Free;
-		}
-	}
+return (T*)to_write;
+}
+else {
+Free += sizeof(T) * Count;
+return(T*)Free;
+}
+}
 
-	void deallocate(T* V, size_t Count)
-	{
-	}
+void deallocate(T* V, size_t Count)
+{
+}
 };*/
 
 //18801
@@ -330,10 +335,17 @@ int main(int argc, char* argv[])
 		time += elapsed.count();
 	}
 
+	/*for (auto Entry : Map)
+	{
+		printf("Word %s, count %d\n", Entry.first, Entry.second);
+	}*/
+
+	//BuffAllocator buf = BuffAllocator();
+	//delete &buf;
 
 	cout << endl << "Elapsed time: " << time << " ms" << endl;
-
+	
 	getchar();
-
+	//delete &ALLOCATOR;
 	return 0;
 }
