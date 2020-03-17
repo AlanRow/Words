@@ -43,40 +43,29 @@ public:
 
 class BuffAllocator {
 	char * free;
-	char ** buf;
+	char * buf;
 	char * end;
 	int bufsize;
 
 public:
-	BuffAllocator() : BuffAllocator(13000) {}
+	BuffAllocator() : BuffAllocator(200000) {}
 
 	BuffAllocator(int size) {
 		bufsize = size;
 		cout << "Allocator created!" << endl;
 
-		char* start = (char*)malloc(bufsize);
-		//cout << start << endl;
-
-		free = start + sizeof(char*);
-		//end = start + bufsize;
-
-		char* null = 0;
-
-		buf = (char**)start;
-		//cout << buf << endl;
-
-		*buf = null;
-		//cout << buf << endl;
+		buf = (char*)malloc(bufsize);
+		*(void **)buf = 0;
+		
+		free = buf + sizeof(void*);
 	}
 
 	void * allocate(size_t Count) {
 		if (free + Count > end) {
 			cout << "Buffer created!" << endl;
 			char * new_buf = (char*)malloc(bufsize);//  1048576
-			char * previous = *buf;
-			*new_buf = (char)previous; //???
-
-			buf = (char **)new_buf;
+			*(void **)new_buf = buf;
+			buf = new_buf;
 
 			end = new_buf + bufsize;
 			free = new_buf + sizeof(char *);
@@ -89,13 +78,14 @@ public:
 	}
 
 	BuffAllocator::~BuffAllocator() {
-		char ** cur = buf;
-		//cout << "Buffer deleted!" << endl;
-		while (cur != 0) {
+		void* p = *(void **)buf;
+		char* cur = buf;
+
+		while (p != 0) {
+			std::free(cur);
 			cout << "Buffer deleted!" << endl;
-			char ** next = (char **)*cur;
-			std::free((char*)cur);
-			cur = (char **)*next;
+			cur = (char*)p;
+			p = *(void **)cur;
 		}
 	}
 };
@@ -108,7 +98,7 @@ class CMyAllocator
 public:
 	typedef typename T value_type;
 
-	
+
 
 	CMyAllocator()
 	{
@@ -128,105 +118,34 @@ public:
 	}
 };
 
-//18 583
-//18 660
-
-/*template <class T>
-class CMyAllocator
-{
-char * Buffer;
-char * Free;
-char * End;
-//bool first;
-public:
-typedef typename T value_type;
-
-CMyAllocator()
-{
-Buffer = (char*)malloc(BUFSIZE);
-char *Next = 0;
-End = Buffer + BUFSIZE;
-Free = Buffer + sizeof(Next);
-//first = true;
-}
-
-template <class U>
-CMyAllocator(const CMyAllocator<U> &V)
-{
-Buffer = (char*)malloc(BUFSIZE);
-char *Next = 0;
-End = Buffer + BUFSIZE;
-Free = Buffer + sizeof(Next);
-}
-
-T* allocate(size_t Count) {
-if (Free + sizeof(T) * Count > End) {
-cout << End - Free << endl;
-cout << "Buf allocated" << endl;
-char * new_buf = (char*)malloc(BUFSIZE);//  1048576
-//void ** Next = (void **)new_buf;
-void ** Next = (void **)new_buf;
-*Next = Buffer;
-Buffer = new_buf;
-End = Buffer + BUFSIZE;
-
-char * to_write = Free;
-Free = Buffer + sizeof(T) * Count + sizeof(Next);
-
-return (T*)to_write;
-}
-else {
-Free += sizeof(T) * Count;
-return(T*)Free;
-}
-}
-
-void deallocate(T* V, size_t Count)
-{
-}
-};*/
-
-//18801
-//18538
-
-/*template <class T>
-class CMyAllocator
-{
-public:
-typedef typename T value_type;
-
-CMyAllocator()
-{
-
-}
-
-template <class U>
-CMyAllocator(const CMyAllocator<U> &V)
-{
-
-}
-
-T* allocate(size_t Count)
-{
-//printf("Allocate %d\n", (int)(Count * sizeof(T)));
-
-return (T*)malloc(sizeof(T) * Count);
-}
-
-void deallocate(T* V, size_t Count)
-{
-//printf("Free %d\n", (int)(Count * sizeof(T)));
-
-free(V);
-}
-};*/
-
 HANDLE open_for_read() {
 	return CreateFile(TEXT("text.txt"), GENERIC_READ, 0, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 }
 
-
+/*template <class T>
+class CMyAllocator
+{
+public:
+	typedef typename T value_type;
+	CMyAllocator()
+	{
+	}
+	template <class U>
+	CMyAllocator(const CMyAllocator<U> &V)
+	{
+	}
+	T* allocate(size_t Count)
+	{
+		//printf("Allocate %d\n", (int)(Count * sizeof(T)));
+		return (T*)malloc(sizeof(T) * Count);
+	}
+	void deallocate(T* V, size_t Count)
+	{
+		//printf("Free %d\n", (int)(Count * sizeof(T)));
+		free(V);
+	}
+};*/
 int read_file(char** text) {
 
 	HANDLE file = open_for_read();
@@ -303,11 +222,11 @@ int main(int argc, char* argv[])
 
 	double time = 0;
 
-	for (int i = 0; i < 1; i++) {
+	//for (int i = 0; i < 1; i++) {
 		chrono::time_point<chrono::high_resolution_clock> start = chrono::high_resolution_clock::now();
 		parsewords(text, abet);
 
-		map<char*, size_t, CStringComparator, CMyAllocator<char*>> Map;
+		map<string, size_t> Map;
 
 		char *p = text;
 
@@ -333,18 +252,19 @@ int main(int argc, char* argv[])
 		chrono::time_point<chrono::high_resolution_clock> end = chrono::high_resolution_clock::now();
 		auto elapsed = chrono::duration_cast<chrono::milliseconds>(end - start);
 		time += elapsed.count();
-	}
+	//}
 
-	/*for (auto Entry : Map)
+	for (auto Entry : Map)
 	{
-		printf("Word %s, count %d\n", Entry.first, Entry.second);
-	}*/
+		printf("Word %s, count %I64d\n", Entry.first.c_str(), (uint64_t)Entry.second);
+		//printf("Word %s, count %d\n", Entry.first, Entry.second);
+	}
 
 	//BuffAllocator buf = BuffAllocator();
 	//delete &buf;
 
 	cout << endl << "Elapsed time: " << time << " ms" << endl;
-	
+
 	getchar();
 	//delete &ALLOCATOR;
 	return 0;
