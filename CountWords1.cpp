@@ -90,9 +90,78 @@ public:
 	}
 };
 
-BuffAllocator ALLOCATOR = BuffAllocator();
+class CBuddyAllocator {
+private:
+	list<char*> free_blocks[20];
+
+public:
+	CBuddyAllocator() {
+		for (int i = 0; i < 20; i++)
+			free_blocks[i] = list<char*>();
+
+		char* p = (char*)malloc(2097152);
+
+		free_blocks[19].emplace_back(p);
+	}
+
+	void * allocate(size_t Count) {
+		int level = (int) ceil(log2(Count)) - 2;
+		
+		int cur_level = level;
+		while (!free_blocks[cur_level].empty()) {
+			cur_level++;
+		}
+
+		if (cur_level == level) {
+			char* p = free_blocks[level].front();
+			free_blocks[level].remove(p);
+
+			return p;
+		}
+		else {
+			char* p = free_blocks[cur_level].front();
+			free_blocks[cur_level].remove(p);
+			cur_level--;
+			while (cur_level >= level) {
+				int shift = 1 << (2 + cur_level);
+				char* cur_p = p + shift;
+				free_blocks[cur_level].emplace_back(cur_p);
+				cur_level--;
+			}
+			return p;
+		}
+	}
+};
+
+CBuddyAllocator BUDDY_ALLOCATOR = CBuddyAllocator();
 
 template <class T>
+class CMyAllocator {
+
+public:
+	typedef typename T value_type;
+
+	CMyAllocator()
+	{
+	}
+
+	template <class U>
+	CMyAllocator(const CMyAllocator<U> &V)
+	{
+	}
+
+	T* allocate(size_t Count) {
+		return (T*)BUDDY_ALLOCATOR.allocate(Count * sizeof(T));
+	}
+
+	void deallocate(T* V, size_t Count)
+	{
+	}
+};
+
+BuffAllocator ALLOCATOR = BuffAllocator();
+
+/*template <class T>
 class CMyAllocator
 {
 public:
@@ -116,7 +185,7 @@ public:
 	void deallocate(T* V, size_t Count)
 	{
 	}
-};
+};*/
 
 HANDLE open_for_read() {
 	return CreateFile(TEXT("text.txt"), GENERIC_READ, 0, NULL,
@@ -226,7 +295,7 @@ int main(int argc, char* argv[])
 		chrono::time_point<chrono::high_resolution_clock> start = chrono::high_resolution_clock::now();
 		parsewords(text, abet);
 
-		map<string, size_t> Map;
+		map<char*, size_t, CStringComparator, CMyAllocator<char*>> Map;
 
 		char *p = text;
 
@@ -256,8 +325,8 @@ int main(int argc, char* argv[])
 
 	for (auto Entry : Map)
 	{
-		printf("Word %s, count %I64d\n", Entry.first.c_str(), (uint64_t)Entry.second);
-		//printf("Word %s, count %d\n", Entry.first, Entry.second);
+		//printf("Word %s, count %I64d\n", Entry.first.c_str(), (uint64_t)Entry.second);
+		printf("Word %s, count %d\n", Entry.first, Entry.second);
 	}
 
 	//BuffAllocator buf = BuffAllocator();
