@@ -90,28 +90,47 @@ public:
 	}
 };
 
+// simple buddy memory allocation implementation
 class CBuddyAllocator {
 private:
+	// free blocks lists for levels from 1 to 20
+	// from 2 bytes to 2 MB block size
 	list<char*> free_blocks[20];
 
 public:
 	CBuddyAllocator() {
+		// init free blocks lists
 		for (int i = 0; i < 20; i++)
 			free_blocks[i] = list<char*>();
 
+
+		// allocate in memory first block
+		// for next splitting
 		char* p = (char*)malloc(2097152);
 
+		// adds block to 20-th level
 		free_blocks[19].emplace_back(p);
 	}
 
+	// allocation method
 	void * allocate(size_t Count) {
+		//cout << free_blocks[4].empty() << endl;
+
+		//cout << "Allocating started: " << Count << endl;
+		// calc the minimal level for allocating object
 		int level = (int) ceil(log2(Count)) - 2;
 		
 		int cur_level = level;
-		while (!free_blocks[cur_level].empty()) {
+		// find first level with free block, starting from minimal
+		//cout << "find level" << endl;
+		while (free_blocks[cur_level].empty()) {
 			cur_level++;
 		}
+		//cout << "Level found: " << cur_level << endl;
+		//cout << "Level found: " << level << endl;
 
+		//cout << "Free blocks" << endl;
+		// if level is minimal, then remove it from free-list and return pointer
 		if (cur_level == level) {
 			char* p = free_blocks[level].front();
 			free_blocks[level].remove(p);
@@ -122,10 +141,14 @@ public:
 			char* p = free_blocks[cur_level].front();
 			free_blocks[cur_level].remove(p);
 			cur_level--;
+			// divide block into two others and free right part
+			// untill block size more than minimum
 			while (cur_level >= level) {
+				// block size equals to 2^(block_level + 1) = 2^(block_index + 2)
 				int shift = 1 << (2 + cur_level);
+				// free right part
 				char* cur_p = p + shift;
-				free_blocks[cur_level].emplace_back(cur_p);
+				free_blocks[cur_level].emplace_front(cur_p);
 				cur_level--;
 			}
 			return p;
@@ -151,7 +174,9 @@ public:
 	}
 
 	T* allocate(size_t Count) {
+		//cout << "Allocating going to start" << endl;
 		return (T*)BUDDY_ALLOCATOR.allocate(Count * sizeof(T));
+		//cout << "Allocating success!" << endl;
 	}
 
 	void deallocate(T* V, size_t Count)
@@ -159,7 +184,7 @@ public:
 	}
 };
 
-BuffAllocator ALLOCATOR = BuffAllocator();
+//BuffAllocator ALLOCATOR = BuffAllocator();
 
 /*template <class T>
 class CMyAllocator
